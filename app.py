@@ -32,12 +32,21 @@ def get_azure_settings() -> dict[str, str]:
     return settings
 
 
+def normalize_azure_endpoint(endpoint: str) -> str:
+    """Support both Azure OpenAI resource endpoints and Azure AI Foundry project endpoints."""
+    endpoint = endpoint.strip().rstrip("/")
+    if "/api/projects/" in endpoint:
+        resource = endpoint.split(".services.ai.azure.com", 1)[0]
+        return f"{resource}.openai.azure.com"
+    return endpoint
+
+
 def build_client() -> tuple[AzureOpenAI, str]:
     settings = get_azure_settings()
     deployment = settings["AZURE_DEPLOYMENT"]
 
     client = AzureOpenAI(
-        azure_endpoint=settings["AZURE_ENDPOINT"].rstrip("/"),
+        azure_endpoint=normalize_azure_endpoint(settings["AZURE_ENDPOINT"]),
         api_key=settings["AZURE_API_KEY"],
         api_version="2024-10-21",
     )
