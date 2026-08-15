@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trip Planner</title>
+    <style>
+      :root {
+        --bg: #f4f7fb;
+        --panel: #ffffff;
+        --panel-alt: #eef4ff;
+        --text: #1b2430;
+        --muted: #5d6b7a;
+        --primary: #2457d6;
+        --primary-soft: rgba(36, 87, 214, 0.12);
+        --user: #eaf2ff;
+        --bot: #f3f5f7;
+        --border: #dfe7f3;
+        --shadow: 0 12px 36px rgba(22, 39, 72, 0.12);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        background: linear-gradient(180deg, #edf3ff, var(--bg));
+        color: var(--text);
+      }
+
+      .app {
+        max-width: 900px;
+        margin: 32px auto;
+        padding: 24px;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .header {
+        background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+        color: #fff;
+        padding: 20px 24px;
+      }
+
+      .header h1 {
+        margin: 0;
+        font-size: 1.5rem;
+      }
+
+      .chat {
+        height: 560px;
+        overflow-y: auto;
+        padding: 20px 18px;
+        background: #fbfdff;
+      }
+
+      .message {
+        display: flex;
+        margin-bottom: 16px;
+      }
+
+      .message.user {
+        justify-content: flex-end;
+      }
+
+      .bubble {
+        max-width: 78%;
+        padding: 12px 14px;
+        border-radius: 16px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+
+      .message.user .bubble {
+        background: var(--user);
+        border-bottom-right-radius: 4px;
+      }
+
+      .message.bot .bubble {
+        background: var(--bot);
+        border-bottom-left-radius: 4px;
+      }
+
+      .composer {
+        display: flex;
+        gap: 10px;
+        padding: 16px 18px 18px;
+        border-top: 1px solid var(--border);
+        background: var(--panel);
+      }
+
+      textarea {
+        flex: 1;
+        min-height: 52px;
+        max-height: 150px;
+        resize: vertical;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 14px;
+        font: inherit;
+        color: var(--text);
+        background: #fff;
+      }
+
+      textarea:focus {
+        outline: 2px solid var(--primary-soft);
+        border-color: var(--primary);
+      }
+
+      button {
+        border: none;
+        background: var(--primary);
+        color: white;
+        font-weight: 700;
+        padding: 0 18px;
+        border-radius: 12px;
+        cursor: pointer;
+        min-width: 110px;
+      }
+
+      button:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+      }
+
+      .thinking {
+        display: none;
+        align-items: center;
+        gap: 10px;
+        color: var(--muted);
+        padding: 4px 8px 12px;
+      }
+
+      .thinking.visible {
+        display: flex;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--primary);
+        animation: pulse 1.2s infinite ease-in-out;
+      }
+
+      .dot:nth-child(2) { animation-delay: 0.15s; }
+      .dot:nth-child(3) { animation-delay: 0.3s; }
+
+      @keyframes pulse {
+        0%, 80%, 100% { opacity: 0.28; transform: scale(0.85); }
+        40% { opacity: 1; transform: scale(1); }
+      }
+
+      .disclaimer {
+        margin-top: 12px;
+        font-size: 0.82rem;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      @media (max-width: 640px) {
+        .app { padding: 12px; }
+        .chat { height: 480px; }
+        .composer { flex-direction: column; }
+        button { width: 100%; min-height: 44px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="card">
+        <div class="header">
+          <h1>✈️ Trip Planning Expert</h1>
+        </div>
+
+        <div id="chat" class="chat" aria-live="polite"></div>
+
+        <div id="thinking" class="thinking" aria-live="polite">
+          <span>thinking...</span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+        </div>
+
+        <form id="chat-form" class="composer">
+          <textarea id="message-input" rows="1" placeholder="Ask about a destination, budget, itinerary, or travel timing..." aria-label="Message input"></textarea>
+          <button id="send-button" type="submit">Send</button>
+        </form>
+      </div>
+
+      <div class="disclaimer">
+        Disclaimer: verify travel details such as flights, visas, pricing, and local requirements before booking.
+      </div>
+    </div>
+
+    <script>
+      const chatEl = document.getElementById('chat');
+      const form = document.getElementById('chat-form');
+      const input = document.getElementById('message-input');
+      const thinkingEl = document.getElementById('thinking');
+      const sendButton = document.getElementById('send-button');
+
+      const messages = [
+        { role: 'assistant', content: 'Hi! I can help you plan a trip. Tell me your destination, dates, travel style, and budget.' }
+      ];
+
+      function renderMessages() {
+        chatEl.innerHTML = '';
+        messages.forEach((message) => {
+          const wrapper = document.createElement('div');
+          wrapper.className = `message ${message.role}`;
+
+          const bubble = document.createElement('div');
+          bubble.className = 'bubble';
+          bubble.textContent = message.content;
+
+          wrapper.appendChild(bubble);
+          chatEl.appendChild(wrapper);
+        });
+
+        chatEl.scrollTop = chatEl.scrollHeight;
+      }
+
+      function setThinking(show) {
+        thinkingEl.classList.toggle('visible', show);
+        sendButton.disabled = show;
+      }
+
+      function appendMessage(role, content) {
+        messages.push({ role, content });
+        renderMessages();
+      }
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const text = input.value.trim();
+        if (!text) return;
+
+        appendMessage('user', text);
+        input.value = '';
+        setThinking(true);
+
+        try {
+          const response = await fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: messages.slice(-20) })
+          });
+
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.detail || 'The server was unable to answer the request.');
+          }
+
+          appendMessage('assistant', data.reply || 'I’m here to help with your trip planning.');
+        } catch (error) {
+          appendMessage('assistant', `Sorry, I couldn’t complete that request. ${error.message}`);
+        } finally {
+          setThinking(false);
+        }
+      });
+
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          form.requestSubmit();
+        }
+      });
+
+      renderMessages();
+    </script>
+  </body>
+</html>
